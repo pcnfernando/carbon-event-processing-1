@@ -43,6 +43,7 @@ import org.wso2.carbon.utils.ConfigurationContextService;
 import org.wso2.siddhi.core.SiddhiManager;
 import org.wso2.siddhi.core.config.StatisticsConfiguration;
 import org.wso2.siddhi.core.util.persistence.PersistenceStore;
+import org.wso2.siddhi.core.util.snapshot.SnapshotService;
 
 /**
  * @scr.component name="eventProcessorService.component" immediate="true"
@@ -105,6 +106,8 @@ public class EventProcessorServiceDS {
                 siddhiManager.setPersistenceStore(persistenceStore);
                 persistenceStore.setProperties(persistConfig.getPropertiesMap());
                 EventProcessorValueHolder.registerPersistenceConfiguration(persistConfig);
+                SnapshotService.setPersistenceStore(persistenceStore);
+                SnapshotService.restoreSnapshotableElements();
             }
 
             StatisticsConfiguration statisticsConfiguration = new StatisticsConfiguration(new SiddhiMetricsFactory(
