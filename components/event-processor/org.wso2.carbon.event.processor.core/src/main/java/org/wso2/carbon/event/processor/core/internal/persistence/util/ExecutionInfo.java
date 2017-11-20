@@ -30,6 +30,7 @@ public class ExecutionInfo {
     private String preparedTableExistenceCheckStatement;
     private String preparedSelectStatement;
     private String preparedSelectLastStatement;
+    private String preparedDeleteStatement;
 
     private boolean tableExist = false;
 
@@ -80,5 +81,13 @@ public class ExecutionInfo {
 
     public void setTableExist(boolean tableExist) {
         this.tableExist = tableExist;
+    }
+
+    public void setPreparedDeleteStatement(String preparedDeleteStatement) {
+    	this.preparedDeleteStatement = preparedDeleteStatement;
+    }
+
+    public String getPreparedDeleteStatement() {
+    	return preparedDeleteStatement;
     }
 }

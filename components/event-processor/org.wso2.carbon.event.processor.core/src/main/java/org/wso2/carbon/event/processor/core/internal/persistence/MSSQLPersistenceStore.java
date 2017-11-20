@@ -1,17 +1,19 @@
 /*
- * Copyright (c) 2016, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ * Copyright (c)  2017, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
+ * WSO2 Inc. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 package org.wso2.carbon.event.processor.core.internal.persistence;
 
@@ -19,8 +21,8 @@ package org.wso2.carbon.event.processor.core.internal.persistence;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
-import org.wso2.carbon.event.processor.core.internal.persistence.util.ExecutionInfo;
 import org.wso2.carbon.event.processor.core.internal.ds.EventProcessorValueHolder;
+import org.wso2.carbon.event.processor.core.internal.persistence.util.ExecutionInfo;
 import org.wso2.carbon.ndatasource.common.DataSourceException;
 import org.wso2.carbon.ndatasource.core.CarbonDataSource;
 import org.wso2.siddhi.core.util.persistence.PersistenceStore;
@@ -33,10 +35,8 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 
-public class DBPersistenceStore implements PersistenceStore {
-
-    private static final Log log = LogFactory.getLog(DBPersistenceStore.class);
-
+public class MSSQLPersistenceStore implements PersistenceStore {
+    private static final Log log = LogFactory.getLog(MSSQLPersistenceStore.class);
     private DataSource dataSource;
     private String tableName;
     private String dataSourceName;
@@ -55,9 +55,9 @@ public class DBPersistenceStore implements PersistenceStore {
         createTableIfNotExist();
         saveRevision(executionPlanId, revision, snapshot);
 
-        if (purgeOldSnapshots) {
-        	deleteRevision(executionPlanId, revision);
-        }
+	    if (purgeOldSnapshots) {
+		    deleteRevision(executionPlanId, revision);
+	    }
     }
 
     @Override
@@ -68,10 +68,6 @@ public class DBPersistenceStore implements PersistenceStore {
             executionInfo = new ExecutionInfo();
             initializeDatabaseExecutionInfo();
         }
-	    Object purgeOldSnapshotsPropertyValue = properties.get("purgeOldSnapshots");
-	    if (purgeOldSnapshotsPropertyValue != null && !purgeOldSnapshotsPropertyValue.toString().isEmpty()){
-		    purgeOldSnapshots = purgeOldSnapshotsPropertyValue.toString().equalsIgnoreCase("true");
-	    }
     }
 
     @Override
@@ -95,7 +91,6 @@ public class DBPersistenceStore implements PersistenceStore {
             } catch (SQLException e) {
                 log.error("Cannot establish connection to the data source" + dataSourceName, e);
             }
-
             stmt = con.prepareStatement(executionInfo.getPreparedSelectStatement());
             stmt.setString(1, revision);
             stmt.setString(2, tenantId);
@@ -106,9 +101,9 @@ public class DBPersistenceStore implements PersistenceStore {
                 int blobLength = (int) blobSnapshot.length();
                 blobAsBytes = blobSnapshot.getBytes(1, blobLength);
             }
-
         } catch (SQLException e) {
-            log.error("Error while retrieving revision " + revision + "of execution plan:" + executionPlanId + "from the database", e);
+            log.error("Error while retrieving revision " + revision + "of execution plan:" +
+                    executionPlanId + "from the database", e);
         } finally {
             cleanupConnections(stmt, con);
         }
@@ -146,7 +141,8 @@ public class DBPersistenceStore implements PersistenceStore {
                 revision = String.valueOf(resultSet.getString("revision"));
             }
         } catch (SQLException e) {
-            log.error("Error while retrieving last revision of execution plan:" + executionPlanId + "from the database", e);
+            log.error("Error while retrieving last revision of execution plan:" + executionPlanId +
+                    "from the database", e);
         } finally {
             cleanupConnections(stmt, con);
         }
@@ -154,10 +150,11 @@ public class DBPersistenceStore implements PersistenceStore {
     }
 
     public void connect() {
-
         Connection con = null;
         try {
-            CarbonDataSource carbonDataSource = EventProcessorValueHolder.getDataSourceService().getDataSource(dataSourceName);
+            CarbonDataSource carbonDataSource = EventProcessorValueHolder
+                    .getDataSourceService()
+                    .getDataSource(dataSourceName);
             dataSource = (DataSource) carbonDataSource.getDSObject();
             con = ((DataSource) carbonDataSource.getDSObject()).getConnection();
         } catch (DataSourceException e) {
@@ -167,12 +164,9 @@ public class DBPersistenceStore implements PersistenceStore {
         } finally {
             cleanupConnections(null, con);
         }
-
     }
 
-
     public void saveRevision(String executionPlanId, String revision, byte[] snapshot) {
-
         PreparedStatement stmt = null;
         Connection con = null;
         try {
@@ -196,42 +190,43 @@ public class DBPersistenceStore implements PersistenceStore {
         }
     }
 
-    private void deleteRevision(String executionPlanId, String currentRevision) {
-	    Queue<String> latestTwoRevisions = lastTwoRevisionsMap.get(executionPlanId);
-	    if (latestTwoRevisions == null) {
-		    latestTwoRevisions = new LinkedList<>();
-		    lastTwoRevisionsMap.put(executionPlanId, latestTwoRevisions);
-	    }
+	private void deleteRevision(String executionPlanId, String currentRevision) {
+		Queue<String> latestTwoRevisions = lastTwoRevisionsMap.get(executionPlanId);
+		if (latestTwoRevisions == null) {
+			latestTwoRevisions = new LinkedList<>();
+			lastTwoRevisionsMap.put(executionPlanId, latestTwoRevisions);
+		}
 
-	    if (latestTwoRevisions.size() < 2) {
-		    latestTwoRevisions.add(currentRevision);
-	    } else {
-		    String revisionToDelete = latestTwoRevisions.remove();
-		    latestTwoRevisions.add(currentRevision);
-		    PreparedStatement stmt = null;
-		    Connection con = null;
-		    try {
-			    try {
-				    con = dataSource.getConnection();
-				    con.setAutoCommit(false);
-			    } catch (SQLException e) {
-				    log.error("Cannot establish connection to the data source" + dataSourceName, e);
-			    }
-			    stmt = con.prepareStatement(executionInfo.getPreparedDeleteStatement());
-			    stmt.setString(1, revisionToDelete);
-			    stmt.setString(2, executionPlanId);
-			    stmt.setString(3, getTenantId());
-			    stmt.executeUpdate();
-			    con.commit();
-		    } catch (SQLException e) {
-			    log.error("Error while deleting revision" + revisionToDelete + " of the execution plan" + executionPlanId + "to the database", e);
-		    } finally {
-			    cleanupConnections(stmt, con);
-		    }
-	    }
-    }
+		if (latestTwoRevisions.size() < 2) {
+			latestTwoRevisions.add(currentRevision);
+		} else {
+			String revisionToDelete = latestTwoRevisions.remove();
+			latestTwoRevisions.add(currentRevision);
+			PreparedStatement stmt = null;
+			Connection con = null;
+			try {
+				try {
+					con = dataSource.getConnection();
+					con.setAutoCommit(false);
+				} catch (SQLException e) {
+					log.error("Cannot establish connection to the data source" + dataSourceName, e);
+				}
+				stmt = con.prepareStatement(executionInfo.getPreparedDeleteStatement());
+				stmt.setString(1, revisionToDelete);
+				stmt.setString(2, executionPlanId);
+				stmt.setString(3, getTenantId());
+				stmt.executeUpdate();
+				con.commit();
+			} catch (SQLException e) {
+				log.error("Error while deleting revision" + revisionToDelete + " of the execution plan" + executionPlanId + "to the database", e);
+			} finally {
+				cleanupConnections(stmt, con);
+			}
+		}
+	}
 
-    public void createTableIfNotExist() {
+
+	public void createTableIfNotExist() {
 
         if (!executionInfo.isTableExist()) {
             Statement stmt = null;
@@ -255,7 +250,6 @@ public class DBPersistenceStore implements PersistenceStore {
                         log.debug("Table " + tableName + " does not Exist. Table Will be created. ");
                     }
                 }
-
                 try {
                     if (!tableExists) {
                         stmt.executeUpdate(executionInfo.getPreparedCreateTableStatement());
@@ -272,7 +266,6 @@ public class DBPersistenceStore implements PersistenceStore {
             }
         }
     }
-
 
     private void cleanupConnections(Statement stmt, Connection connection) {
         if (stmt != null) {
@@ -296,15 +289,15 @@ public class DBPersistenceStore implements PersistenceStore {
      */
     private void initializeDatabaseExecutionInfo() {
         //Constructing query to create a new table
-        String createTableQuery = "CREATE TABLE " + tableName + " (id INT NOT NULL AUTO_INCREMENT, tenantId VARCHAR(100), executionPlanId VARCHAR(100),revision  VARCHAR(100),snapshot  BLOB,  PRIMARY KEY (id))";
+        String createTableQuery = "CREATE TABLE " + tableName + " (id INT IDENTITY(1,1) PRIMARY KEY, tenantId VARCHAR(100), executionPlanId VARCHAR(100),revision  VARCHAR(100),snapshot VARBINARY(MAX))";
         //constructing query to insert date into the table row
         String insertTableRowQuery = "INSERT INTO " + tableName + " (tenantId, executionPlanId, revision, snapshot) VALUES (?, ?, ?,?)";
         //Constructing query to check for the table existence
-        String isTableExistQuery = "SELECT * FROM " + tableName + " limit 1";
+        String isTableExistQuery = "SELECT TOP(1) * FROM " + tableName;
         //Constructing query to select snapshot
         String selectTableQuery = "SELECT snapshot FROM " + tableName + " WHERE  revision = ? AND  tenantId = ? AND executionPlanId = ? ";
         //Constructing query to select latest revision
-        String selectLastQuery = "SELECT revision FROM " + tableName + " WHERE tenantId = ? AND executionPlanId = ? ORDER BY id DESC  LIMIT 1";
+        String selectLastQuery = "SELECT TOP(1) revision FROM " + tableName + " WHERE tenantId = ? AND executionPlanId = ? ORDER BY id DESC ";
 	    //Constructing query to delete a certain revision
 	    String deleteRevisionQuery = "DELETE FROM " + tableName + " WHERE revision = ? AND executionPlanId = ? AND tenantId = ?";
 
