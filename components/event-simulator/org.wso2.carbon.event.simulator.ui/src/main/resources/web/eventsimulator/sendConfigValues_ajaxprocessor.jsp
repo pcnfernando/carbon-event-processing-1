@@ -20,7 +20,6 @@
     try{
         EventSimulatorAdminServiceStub stub = EventSimulatorUIUtils.getEventSimulatorAdminService(config, session, request);
         String jsonData = request.getParameter("jsonData");
-
         JSONObject fileConfigData=new JSONObject(jsonData);
 
         String fileName = fileConfigData.getString("FileName");
