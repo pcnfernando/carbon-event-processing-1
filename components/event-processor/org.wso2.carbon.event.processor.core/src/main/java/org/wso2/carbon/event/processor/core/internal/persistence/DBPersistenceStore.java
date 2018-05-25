@@ -41,8 +41,8 @@ public class DBPersistenceStore implements PersistenceStore {
     private String tableName;
     private String dataSourceName;
     private ExecutionInfo executionInfo = null;
-	private Map<String, Queue<String>> lastTwoRevisionsMap = new HashMap<>();
-	private boolean purgeOldSnapshots = false;
+    private Map<String, Queue<String>> lastTwoRevisionsMap = new HashMap<>();
+    private boolean purgeOldSnapshots = false;
 
 
     @Override
@@ -305,8 +305,9 @@ public class DBPersistenceStore implements PersistenceStore {
         String selectTableQuery = "SELECT snapshot FROM " + tableName + " WHERE  revision = ? AND  tenantId = ? AND executionPlanId = ? ";
         //Constructing query to select latest revision
         String selectLastQuery = "SELECT revision FROM " + tableName + " WHERE tenantId = ? AND executionPlanId = ? ORDER BY id DESC  LIMIT 1";
-	    //Constructing query to delete a certain revision
-	    String deleteRevisionQuery = "DELETE FROM " + tableName + " WHERE revision = ? AND executionPlanId = ? AND tenantId = ?";
+        //Constructing query to delete a certain revision
+        String deleteRevisionQuery = "DELETE FROM " + tableName + " WHERE revision = ? " +
+                "AND executionPlanId = ? AND tenantId = ?";
 
         executionInfo.setPreparedInsertStatement(insertTableRowQuery);
         executionInfo.setPreparedCreateTableStatement(createTableQuery);
