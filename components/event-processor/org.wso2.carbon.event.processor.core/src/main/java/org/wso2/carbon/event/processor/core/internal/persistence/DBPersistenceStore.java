@@ -197,38 +197,38 @@ public class DBPersistenceStore implements PersistenceStore {
     }
 
     private void deleteRevision(String executionPlanId, String currentRevision) {
-	    Queue<String> latestTwoRevisions = lastTwoRevisionsMap.get(executionPlanId);
-	    if (latestTwoRevisions == null) {
-		    latestTwoRevisions = new LinkedList<>();
-		    lastTwoRevisionsMap.put(executionPlanId, latestTwoRevisions);
-	    }
-
-	    if (latestTwoRevisions.size() < 2) {
-		    latestTwoRevisions.add(currentRevision);
-	    } else {
-		    String revisionToDelete = latestTwoRevisions.remove();
-		    latestTwoRevisions.add(currentRevision);
-		    PreparedStatement stmt = null;
-		    Connection con = null;
-		    try {
-			    try {
-				    con = dataSource.getConnection();
-				    con.setAutoCommit(false);
-			    } catch (SQLException e) {
-				    log.error("Cannot establish connection to the data source" + dataSourceName, e);
-			    }
-			    stmt = con.prepareStatement(executionInfo.getPreparedDeleteStatement());
-			    stmt.setString(1, revisionToDelete);
-			    stmt.setString(2, executionPlanId);
-			    stmt.setString(3, getTenantId());
-			    stmt.executeUpdate();
-			    con.commit();
-		    } catch (SQLException e) {
-			    log.error("Error while deleting revision" + revisionToDelete + " of the execution plan" + executionPlanId + "to the database", e);
-		    } finally {
-			    cleanupConnections(stmt, con);
-		    }
-	    }
+        Queue<String> latestTwoRevisions = lastTwoRevisionsMap.get(executionPlanId);
+        if (latestTwoRevisions == null) {
+            latestTwoRevisions = new LinkedList<>();
+            lastTwoRevisionsMap.put(executionPlanId, latestTwoRevisions);
+        }
+        if (latestTwoRevisions.size() < 2) {
+            latestTwoRevisions.add(currentRevision);
+        } else {
+            String revisionToDelete = latestTwoRevisions.remove();
+            latestTwoRevisions.add(currentRevision);
+            PreparedStatement stmt = null;
+            Connection con = null;
+            try {
+                try {
+                    con = dataSource.getConnection();
+                    con.setAutoCommit(false);
+                } catch (SQLException e) {
+                    log.error("Cannot establish connection to the data source" + dataSourceName, e);
+                }
+                stmt = con.prepareStatement(executionInfo.getPreparedDeleteStatement());
+                stmt.setString(1, revisionToDelete);
+                stmt.setString(2, executionPlanId);
+                stmt.setString(3, getTenantId());
+                stmt.executeUpdate();
+                con.commit();
+            } catch (SQLException e) {
+                log.error("Error while deleting revision" + revisionToDelete + " of the execution plan" +
+                        executionPlanId + "to the database", e);
+            } finally {
+                cleanupConnections(stmt, con);
+            }
+        }
     }
 
     public void createTableIfNotExist() {
