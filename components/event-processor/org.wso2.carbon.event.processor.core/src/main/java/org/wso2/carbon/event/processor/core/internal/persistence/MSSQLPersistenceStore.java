@@ -17,7 +17,6 @@
  */
 package org.wso2.carbon.event.processor.core.internal.persistence;
 
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
@@ -27,13 +26,18 @@ import org.wso2.carbon.ndatasource.common.DataSourceException;
 import org.wso2.carbon.ndatasource.core.CarbonDataSource;
 import org.wso2.siddhi.core.util.persistence.PersistenceStore;
 
-import javax.sql.DataSource;
-import javax.sql.rowset.serial.SerialBlob;
-import java.sql.*;
+import java.sql.Blob;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
+import javax.sql.DataSource;
+import javax.sql.rowset.serial.SerialBlob;
 
 public class MSSQLPersistenceStore implements PersistenceStore {
     private static final Log log = LogFactory.getLog(MSSQLPersistenceStore.class);
@@ -41,9 +45,8 @@ public class MSSQLPersistenceStore implements PersistenceStore {
     private String tableName;
     private String dataSourceName;
     private ExecutionInfo executionInfo = null;
-	private Map<String, Queue<String>> lastTwoRevisionsMap = new HashMap<>();
-	private boolean purgeOldSnapshots = false;
-
+    private Map<String, Queue<String>> lastTwoRevisionsMap = new HashMap<>();
+    private boolean purgeOldSnapshots = false;
 
     @Override
     public void save(String executionPlanId, String revision, byte[] snapshot) {
@@ -184,50 +187,49 @@ public class MSSQLPersistenceStore implements PersistenceStore {
             stmt.executeUpdate();
             con.commit();
         } catch (SQLException e) {
-            log.error("Error while saving revision" + revision + " of the execution plan" + executionPlanId + "to the database", e);
+            log.error("Error while saving revision" + revision + " of the execution plan" +
+                    executionPlanId + "to the database", e);
         } finally {
             cleanupConnections(stmt, con);
         }
     }
 
-	private void deleteRevision(String executionPlanId, String currentRevision) {
-		Queue<String> latestTwoRevisions = lastTwoRevisionsMap.get(executionPlanId);
-		if (latestTwoRevisions == null) {
-			latestTwoRevisions = new LinkedList<>();
-			lastTwoRevisionsMap.put(executionPlanId, latestTwoRevisions);
-		}
+    private void deleteRevision(String executionPlanId, String currentRevision) {
+        Queue<String> latestTwoRevisions = lastTwoRevisionsMap.get(executionPlanId);
+        if (latestTwoRevisions == null) {
+            latestTwoRevisions = new LinkedList<>();
+            lastTwoRevisionsMap.put(executionPlanId, latestTwoRevisions);
+        }
+        if (latestTwoRevisions.size() < 2) {
+            latestTwoRevisions.add(currentRevision);
+        } else {
+            String revisionToDelete = latestTwoRevisions.remove();
+            latestTwoRevisions.add(currentRevision);
+            PreparedStatement stmt = null;
+            Connection con = null;
+            try {
+                try {
+                    con = dataSource.getConnection();
+                    con.setAutoCommit(false);
+                } catch (SQLException e) {
+                    log.error("Cannot establish connection to the data source" + dataSourceName, e);
+                }
+                stmt = con.prepareStatement(executionInfo.getPreparedDeleteStatement());
+                stmt.setString(1, revisionToDelete);
+                stmt.setString(2, executionPlanId);
+                stmt.setString(3, getTenantId());
+                stmt.executeUpdate();
+                con.commit();
+            } catch (SQLException e) {
+                log.error("Error while deleting revision" + revisionToDelete + " of the execution plan" +
+                        executionPlanId + "to the database", e);
+            } finally {
+                cleanupConnections(stmt, con);
+            }
+        }
+    }
 
-		if (latestTwoRevisions.size() < 2) {
-			latestTwoRevisions.add(currentRevision);
-		} else {
-			String revisionToDelete = latestTwoRevisions.remove();
-			latestTwoRevisions.add(currentRevision);
-			PreparedStatement stmt = null;
-			Connection con = null;
-			try {
-				try {
-					con = dataSource.getConnection();
-					con.setAutoCommit(false);
-				} catch (SQLException e) {
-					log.error("Cannot establish connection to the data source" + dataSourceName, e);
-				}
-				stmt = con.prepareStatement(executionInfo.getPreparedDeleteStatement());
-				stmt.setString(1, revisionToDelete);
-				stmt.setString(2, executionPlanId);
-				stmt.setString(3, getTenantId());
-				stmt.executeUpdate();
-				con.commit();
-			} catch (SQLException e) {
-				log.error("Error while deleting revision" + revisionToDelete + " of the execution plan" + executionPlanId + "to the database", e);
-			} finally {
-				cleanupConnections(stmt, con);
-			}
-		}
-	}
-
-
-	public void createTableIfNotExist() {
-
+    public void createTableIfNotExist() {
         if (!executionInfo.isTableExist()) {
             Statement stmt = null;
             Boolean tableExists = true;
@@ -289,17 +291,22 @@ public class MSSQLPersistenceStore implements PersistenceStore {
      */
     private void initializeDatabaseExecutionInfo() {
         //Constructing query to create a new table
-        String createTableQuery = "CREATE TABLE " + tableName + " (id INT IDENTITY(1,1) PRIMARY KEY, tenantId VARCHAR(100), executionPlanId VARCHAR(100),revision  VARCHAR(100),snapshot VARBINARY(MAX))";
+        String createTableQuery = "CREATE TABLE " + tableName + " (id INT IDENTITY(1,1) PRIMARY KEY, " +
+                "tenantId VARCHAR(100), executionPlanId VARCHAR(100),revision  VARCHAR(100),snapshot VARBINARY(MAX))";
         //constructing query to insert date into the table row
-        String insertTableRowQuery = "INSERT INTO " + tableName + " (tenantId, executionPlanId, revision, snapshot) VALUES (?, ?, ?,?)";
+        String insertTableRowQuery = "INSERT INTO " + tableName + " (tenantId, executionPlanId, " +
+                "revision, snapshot) VALUES (?, ?, ?,?)";
         //Constructing query to check for the table existence
         String isTableExistQuery = "SELECT TOP(1) * FROM " + tableName;
         //Constructing query to select snapshot
-        String selectTableQuery = "SELECT snapshot FROM " + tableName + " WHERE  revision = ? AND  tenantId = ? AND executionPlanId = ? ";
+        String selectTableQuery = "SELECT snapshot FROM " + tableName + " WHERE  revision = ? AND  tenantId = ? " +
+                "AND executionPlanId = ? ";
         //Constructing query to select latest revision
-        String selectLastQuery = "SELECT TOP(1) revision FROM " + tableName + " WHERE tenantId = ? AND executionPlanId = ? ORDER BY id DESC ";
-	    //Constructing query to delete a certain revision
-	    String deleteRevisionQuery = "DELETE FROM " + tableName + " WHERE revision = ? AND executionPlanId = ? AND tenantId = ?";
+        String selectLastQuery = "SELECT TOP(1) revision FROM " + tableName + " WHERE tenantId = ? " +
+                "AND executionPlanId = ? ORDER BY id DESC ";
+        //Constructing query to delete a certain revision
+        String deleteRevisionQuery = "DELETE FROM " + tableName + " WHERE revision = ? AND executionPlanId = ? " +
+                "AND tenantId = ?";
 
         executionInfo.setPreparedInsertStatement(insertTableRowQuery);
         executionInfo.setPreparedCreateTableStatement(createTableQuery);
@@ -312,5 +319,4 @@ public class MSSQLPersistenceStore implements PersistenceStore {
     private String getTenantId() {
         return String.valueOf(PrivilegedCarbonContext.getThreadLocalCarbonContext().getTenantId()).replaceAll("-", "M");
     }
-
 }
